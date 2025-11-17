@@ -31,6 +31,8 @@ const DevDefender3D = () => {
   const rendererRef = useRef(null);
   const enemiesRef = useRef([]);
   const powerUpsRef = useRef([]);
+  const bulletsRef = useRef([]);
+  const weaponGroupRef = useRef(null);
   const animationRef = useRef(null);
   const clockRef = useRef(new THREE.Clock());
   const playerRotation = useRef({ yaw: 0, pitch: 0 });
@@ -47,8 +49,12 @@ const DevDefender3D = () => {
     powerUpsRef.current.forEach((pickup) => {
       if (pickup.mesh && sceneRef.current) sceneRef.current.remove(pickup.mesh);
     });
+    bulletsRef.current.forEach((bullet) => {
+      if (bullet.mesh && sceneRef.current) sceneRef.current.remove(bullet.mesh);
+    });
     enemiesRef.current = [];
     powerUpsRef.current = [];
+    bulletsRef.current = [];
   }, []);
 
   const applyPowerUp = useCallback((kind) => {
@@ -100,12 +106,12 @@ const DevDefender3D = () => {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f172a);
-    scene.fog = new THREE.Fog(0x0f172a, 10, 160);
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.Fog(0x87ceeb, 0, 200);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 2, 6);
+    camera.position.set(0, 1.6, 5);
     cameraRef.current = camera;
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
@@ -114,44 +120,65 @@ const DevDefender3D = () => {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
-    const hemi = new THREE.HemisphereLight(0xdbeafe, 0x0f172a, 0.8);
-    scene.add(hemi);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
 
-    const dir = new THREE.DirectionalLight(0xffffff, 0.9);
-    dir.position.set(40, 50, 20);
-    dir.castShadow = true;
-    dir.shadow.mapSize.width = 2048;
-    dir.shadow.mapSize.height = 2048;
-    scene.add(dir);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(50, 50, 50);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
 
     const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(240, 240),
-      new THREE.MeshPhongMaterial({ color: 0x1e293b, shininess: 12 }),
+      new THREE.PlaneGeometry(200, 200),
+      new THREE.MeshStandardMaterial({ color: 0x3a5f3a }),
     );
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
 
-    for (let x = -60; x <= 60; x += 6) {
-      for (let z = -60; z <= 60; z += 6) {
-        const tile = new THREE.Mesh(
-          new THREE.PlaneGeometry(5.8, 5.8),
-          new THREE.MeshBasicMaterial({ color: (x + z) % 12 === 0 ? 0x1e40af : 0x0f172a }),
-        );
-        tile.rotation.x = -Math.PI / 2;
-        tile.position.set(x, 0.01, z);
-        scene.add(tile);
-      }
-    }
+    // Create buildings
+    const buildingPositions = [
+      [-15, 0, -20], [15, 0, -20], [-25, 0, -40],
+      [25, 0, -40], [0, 0, -60], [-35, 0, -15],
+      [35, 0, -15], [-20, 0, 20], [20, 0, 20],
+      [-30, 0, 30], [30, 0, 30], [0, 0, 40],
+      [-40, 0, 0], [40, 0, 0]
+    ];
 
-    const cubeGeo = new THREE.BoxGeometry(3, 2, 3);
-    const cubeMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.1, roughness: 0.8 });
-    for (let i = 0; i < 20; i++) {
-      const cube = new THREE.Mesh(cubeGeo, cubeMat);
-      cube.position.set(Math.random() * 100 - 50, 1, Math.random() * 100 - 50);
-      cube.castShadow = true;
-      scene.add(cube);
-    }
+    buildingPositions.forEach(pos => {
+      const height = Math.random() * 10 + 8;
+      const width = Math.random() * 5 + 5;
+      const depth = Math.random() * 5 + 5;
+      
+      const buildingGeo = new THREE.BoxGeometry(width, height, depth);
+      const buildingMat = new THREE.MeshStandardMaterial({ 
+        color: Math.random() > 0.5 ? 0x808080 : 0x696969 
+      });
+      const building = new THREE.Mesh(buildingGeo, buildingMat);
+      building.position.set(pos[0], height / 2, pos[2]);
+      building.castShadow = true;
+      building.receiveShadow = true;
+      scene.add(building);
+    });
+
+    // Weapon (gun model attached to camera)
+    const weaponGroup = new THREE.Group();
+    const barrelGeo = new THREE.BoxGeometry(0.05, 0.05, 0.5);
+    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+    const barrel = new THREE.Mesh(barrelGeo, weaponMat);
+    barrel.position.set(0.15, -0.15, -0.3);
+    
+    const handleGeo = new THREE.BoxGeometry(0.08, 0.15, 0.1);
+    const handle = new THREE.Mesh(handleGeo, weaponMat);
+    handle.position.set(0.15, -0.25, -0.1);
+    
+    weaponGroup.add(barrel);
+    weaponGroup.add(handle);
+    camera.add(weaponGroup);
+    weaponGroupRef.current = weaponGroup;
+    scene.add(camera);
 
     const animate = () => {
       if (!rendererRef.current || !sceneRef.current || !cameraRef.current) return;
@@ -175,29 +202,47 @@ const DevDefender3D = () => {
       forward.normalize();
       right.normalize();
 
-      const moveSpeed = keys.current['shift'] ? 0.35 : 0.22;
+      const moveSpeed = (keys.current['shift'] ? 5 : 3) * delta;
       if (keys.current['w']) cameraRef.current.position.add(forward.clone().multiplyScalar(moveSpeed));
       if (keys.current['s']) cameraRef.current.position.add(forward.clone().multiplyScalar(-moveSpeed));
       if (keys.current['a']) cameraRef.current.position.add(right.clone().multiplyScalar(-moveSpeed));
       if (keys.current['d']) cameraRef.current.position.add(right.clone().multiplyScalar(moveSpeed));
 
+      // Weapon recoil recovery
+      if (weaponGroupRef.current && weaponGroupRef.current.rotation.x < 0) {
+        weaponGroupRef.current.rotation.x += 0.05;
+      }
+
+      // Update bullets
+      for (let i = bulletsRef.current.length - 1; i >= 0; i--) {
+        const bullet = bulletsRef.current[i];
+        if (!bullet.mesh) continue;
+        bullet.mesh.position.add(bullet.velocity.clone().multiplyScalar(delta));
+        
+        if (bullet.mesh.position.distanceTo(cameraRef.current.position) > 100) {
+          sceneRef.current.remove(bullet.mesh);
+          bulletsRef.current.splice(i, 1);
+        }
+      }
+
       enemiesRef.current.forEach((enemy, index) => {
         if (!enemy.mesh) return;
-        const dirToPlayer = cameraRef.current.position.clone().sub(enemy.mesh.position);
-        const distance = dirToPlayer.length();
-        dirToPlayer.normalize();
-        enemy.mesh.position.add(dirToPlayer.multiplyScalar(enemy.speed * delta * (1 + wave * 0.05)));
-        enemy.mesh.lookAt(cameraRef.current.position);
+        const direction = new THREE.Vector3()
+          .subVectors(cameraRef.current.position, enemy.mesh.position)
+          .normalize();
+        
+        enemy.mesh.position.add(direction.multiplyScalar(enemy.speed * (1 + wave * 0.05)));
 
-        if (distance < 1.8) {
+        const distance = enemy.mesh.position.distanceTo(cameraRef.current.position);
+        if (distance < 2) {
           setHealth((h) => {
             const next = Math.max(0, h - enemy.damage);
             if (next <= 0) setGameOver(true);
             return next;
           });
-          sceneRef.current.remove(enemy.mesh);
-          enemiesRef.current.splice(index, 1);
-          setEnemies([...enemiesRef.current]);
+          
+          // Push enemy back
+          enemy.mesh.position.sub(direction.multiplyScalar(5));
         }
       });
 
@@ -213,10 +258,6 @@ const DevDefender3D = () => {
         }
       });
 
-      const time = Date.now() * 0.00008;
-      const hue = (Math.sin(time) + 1) / 2;
-      scene.background.setHSL(0.58, 0.4, 0.15 + hue * 0.25);
-      scene.fog.color.copy(scene.background);
 
       rendererRef.current.render(sceneRef.current, cameraRef.current);
       animationRef.current = requestAnimationFrame(animate);
@@ -244,42 +285,27 @@ const DevDefender3D = () => {
     const type = types[Math.floor(Math.random() * types.length)];
     const blueprint = enemyBlueprints[type];
     const angle = Math.random() * Math.PI * 2;
-    const distance = 30 + Math.random() * 35;
-    const group = new THREE.Group();
+    const distance = 30 + Math.random() * 30;
 
-    const body = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 2.2, 0.8),
-      new THREE.MeshStandardMaterial({ color: blueprint.color, roughness: 0.6 }),
+    // Use cylindrical enemies like in the FPSShooter example
+    const enemyGeometry = new THREE.CylinderGeometry(0.3, 0.3, 1.8, 8);
+    const enemyMaterial = new THREE.MeshStandardMaterial({ color: blueprint.color });
+    const enemy = new THREE.Mesh(enemyGeometry, enemyMaterial);
+    
+    enemy.position.set(
+      Math.cos(angle) * distance,
+      0.9,
+      Math.sin(angle) * distance
     );
-    body.position.y = 1.2;
-    body.castShadow = true;
-    group.add(body);
-
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 18, 18),
-      new THREE.MeshStandardMaterial({ color: 0xffddb3 }),
-    );
-    head.position.y = 2.4;
-    head.castShadow = true;
-    group.add(head);
-
-    const visor = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.26, 0.26, 0.12, 16),
-      new THREE.MeshBasicMaterial({ color: 0x0ea5e9 }),
-    );
-    visor.rotation.x = Math.PI / 2;
-    visor.position.set(0, 2.4, 0.35);
-    group.add(visor);
-
-    group.position.set(Math.cos(angle) * distance, 0, Math.sin(angle) * distance);
-    sceneRef.current.add(group);
+    enemy.castShadow = true;
+    sceneRef.current.add(enemy);
 
     return {
       id: crypto.randomUUID(),
       type,
-      mesh: group,
+      mesh: enemy,
       health: blueprint.health * (1 + wave * 0.05),
-      speed: blueprint.speed,
+      speed: blueprint.speed * 0.02,
       damage: blueprint.damage,
       points: blueprint.points,
     };
@@ -309,11 +335,30 @@ const DevDefender3D = () => {
   );
 
   const shoot = useCallback(() => {
-    if (ammo <= 0 || isReloading || !cameraRef.current) return;
+    if (ammo <= 0 || isReloading || !cameraRef.current || !sceneRef.current) return;
     setAmmo((a) => a - 1);
     setMuzzleFlash(true);
     setTimeout(() => setMuzzleFlash(false), 90);
 
+    // Create visible bullet
+    const bulletGeometry = new THREE.SphereGeometry(0.05);
+    const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+    bullet.position.copy(cameraRef.current.position);
+    
+    const direction = new THREE.Vector3();
+    cameraRef.current.getWorldDirection(direction);
+    const velocity = direction.multiplyScalar(20);
+    
+    sceneRef.current.add(bullet);
+    bulletsRef.current.push({ mesh: bullet, velocity });
+
+    // Weapon recoil
+    if (weaponGroupRef.current) {
+      weaponGroupRef.current.rotation.x = -0.1;
+    }
+
+    // Check for hits with raycaster
     const raycaster = raycasterRef.current;
     raycaster.setFromCamera(new THREE.Vector2(0, 0), cameraRef.current);
 
@@ -430,6 +475,7 @@ const DevDefender3D = () => {
     setEnemies([]);
     powerUpsRef.current = [];
     setPowerUps([]);
+    bulletsRef.current = [];
     if (canvasRef.current) canvasRef.current.requestPointerLock();
   };
 
