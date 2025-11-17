@@ -106,8 +106,9 @@ const DevDefender3D = () => {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 0, 200);
+    // Bright sky blue for clear distinction from ground
+    scene.background = new THREE.Color(0x5dade2);
+    scene.fog = new THREE.Fog(0x5dade2, 0, 200);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -128,8 +129,8 @@ const DevDefender3D = () => {
     renderer.toneMappingExposure = 1.2;
     rendererRef.current = renderer;
 
-    // Enhanced lighting setup
-    const ambientLight = new THREE.AmbientLight(0x87ceeb, 0.4);
+    // Enhanced lighting setup - neutral white to preserve ground color
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
 
     // Main directional light (sun)
@@ -147,15 +148,15 @@ const DevDefender3D = () => {
     dirLight.shadow.bias = -0.0001;
     scene.add(dirLight);
 
-    // Fill light for better visibility
-    const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.3);
+    // Fill light for better visibility - slightly warm tone
+    const fillLight = new THREE.DirectionalLight(0xfff5e6, 0.25);
     fillLight.position.set(-30, 40, -20);
     scene.add(fillLight);
 
-    // Realistic ground with texture variation
+    // Realistic ground with texture variation - darker, more saturated green
     const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
     const groundMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x4a7c4a,
+      color: 0x2d5016, // Darker forest green for better contrast
       roughness: 0.9,
       metalness: 0.1,
     });
@@ -175,12 +176,12 @@ const DevDefender3D = () => {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Add grass patches (simple quads)
+    // Add grass patches (simple quads) - brighter green for visibility
     for (let i = 0; i < 200; i++) {
       const grass = new THREE.Mesh(
         new THREE.PlaneGeometry(0.3, 0.4),
         new THREE.MeshStandardMaterial({ 
-          color: 0x2d5a2d,
+          color: 0x3d6b2d, // Brighter green for contrast
           side: THREE.DoubleSide,
           alphaTest: 0.5,
         })
