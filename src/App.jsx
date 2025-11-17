@@ -60,8 +60,9 @@ const DevDefender3D = () => {
   const applyPowerUp = useCallback((kind) => {
     switch (kind) {
       case 'ammo':
-        setAmmo((a) => Math.min(BASE_AMMO, a + 15));
-        setStatusMessage('Ammo cache secured');
+        // Allow ammo to exceed BASE_AMMO, give 30 ammo per pickup
+        setAmmo((a) => a + 30);
+        setStatusMessage('Ammo cache secured +30');
         break;
       case 'health':
         setHealth((h) => Math.min(120, h + 25));
@@ -359,7 +360,8 @@ const DevDefender3D = () => {
       forward.normalize();
       right.normalize();
 
-      const moveSpeed = (keys.current['shift'] ? 5 : 3) * delta;
+      // 3x faster movement speed
+      const moveSpeed = (keys.current['shift'] ? 15 : 9) * delta;
       if (keys.current['w']) cameraRef.current.position.add(forward.clone().multiplyScalar(moveSpeed));
       if (keys.current['s']) cameraRef.current.position.add(forward.clone().multiplyScalar(-moveSpeed));
       if (keys.current['a']) cameraRef.current.position.add(right.clone().multiplyScalar(-moveSpeed));
@@ -501,7 +503,8 @@ const DevDefender3D = () => {
         const next = current + 1;
         if (streakTimeoutRef.current) clearTimeout(streakTimeoutRef.current);
         streakTimeoutRef.current = setTimeout(() => setKillStreak(0), 4000);
-        if (next % 4 === 0) spawnPowerUp('ammo', enemy.mesh.position.clone());
+        // Spawn ammo more frequently (every 2 kills instead of 4)
+        if (next % 2 === 0) spawnPowerUp('ammo', enemy.mesh.position.clone());
         if (next % 6 === 0) spawnPowerUp('health', enemy.mesh.position.clone());
         return next;
       });
@@ -592,6 +595,21 @@ const DevDefender3D = () => {
     }, spawnRate);
     return () => clearInterval(interval);
   }, [gameStarted, gameOver, wave, createEnemy]);
+
+  // Spawn random ammo boxes periodically on the map
+  useEffect(() => {
+    if (!gameStarted || gameOver) return;
+    const ammoSpawnInterval = setInterval(() => {
+      // Spawn ammo box at random location on map
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 20 + Math.random() * 40;
+      const x = Math.cos(angle) * distance;
+      const z = Math.sin(angle) * distance;
+      const position = new THREE.Vector3(x, 0, z);
+      spawnPowerUp('ammo', position);
+    }, 15000); // Spawn every 15 seconds
+    return () => clearInterval(ammoSpawnInterval);
+  }, [gameStarted, gameOver, spawnPowerUp]);
 
   useEffect(() => {
     if (enemies.length === 0 && score > 0 && !gameOver && gameStarted) {
@@ -695,7 +713,7 @@ const DevDefender3D = () => {
             <div className="hud-panel ammo">
               <div className="label">Ammo</div>
               <div className={`value ${ammo < 8 ? 'danger' : ''}`}>
-                {ammo}/{BASE_AMMO}
+                {ammo}{ammo > BASE_AMMO ? ` (${BASE_AMMO}+)` : `/${BASE_AMMO}`}
               </div>
               {isReloading && <div className="subtext">Reloading…</div>}
             </div>
