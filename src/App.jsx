@@ -106,9 +106,9 @@ const DevDefender3D = () => {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    // Bright sky blue for clear distinction from ground
-    scene.background = new THREE.Color(0x5dade2);
-    scene.fog = new THREE.Fog(0x5dade2, 0, 200);
+    // Much brighter, lighter sky blue for clear distinction
+    scene.background = new THREE.Color(0x87ceeb);
+    scene.fog = new THREE.Fog(0x87ceeb, 0, 200);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -153,12 +153,14 @@ const DevDefender3D = () => {
     fillLight.position.set(-30, 40, -20);
     scene.add(fillLight);
 
-    // Realistic ground with texture variation - darker, more saturated green
+    // Very visible ground - bright green/brown for clear distinction from sky
     const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
     const groundMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x2d5016, // Darker forest green for better contrast
+      color: 0x4a7c4a, // Bright, saturated green - clearly visible
       roughness: 0.9,
       metalness: 0.1,
+      emissive: 0x1a3a1a, // Slight emissive for visibility
+      emissiveIntensity: 0.1,
     });
     
     // Add subtle height variation to ground
@@ -176,12 +178,12 @@ const DevDefender3D = () => {
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Add grass patches (simple quads) - brighter green for visibility
+    // Add visible grass patches - much brighter for clear visibility
     for (let i = 0; i < 200; i++) {
       const grass = new THREE.Mesh(
         new THREE.PlaneGeometry(0.3, 0.4),
         new THREE.MeshStandardMaterial({ 
-          color: 0x3d6b2d, // Brighter green for contrast
+          color: 0x5a8a3a, // Much brighter green for clear visibility
           side: THREE.DoubleSide,
           alphaTest: 0.5,
         })
@@ -190,11 +192,24 @@ const DevDefender3D = () => {
       grass.rotation.z = Math.random() * Math.PI * 2;
       grass.position.set(
         (Math.random() - 0.5) * 180,
-        0.02,
+        0.05, // Slightly higher for visibility
         (Math.random() - 0.5) * 180
       );
       scene.add(grass);
     }
+
+    // Add a visible horizon line/plane for reference
+    const horizonLine = new THREE.Mesh(
+      new THREE.PlaneGeometry(400, 0.2),
+      new THREE.MeshBasicMaterial({ 
+        color: 0xffffff,
+        opacity: 0.3,
+        transparent: true,
+      })
+    );
+    horizonLine.rotation.x = -Math.PI / 2;
+    horizonLine.position.y = 0.1;
+    scene.add(horizonLine);
 
     // Create buildings
     const buildingPositions = [
