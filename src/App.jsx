@@ -106,10 +106,49 @@ const DevDefender3D = () => {
     if (!canvasRef.current) return;
 
     const scene = new THREE.Scene();
-    // Much brighter, lighter sky blue for clear distinction
-    scene.background = new THREE.Color(0x87ceeb);
-    scene.fog = new THREE.Fog(0x87ceeb, 0, 200);
+    // Dark blue-purple base for gradient sky
+    scene.background = new THREE.Color(0x0a0a1a);
     sceneRef.current = scene;
+
+    // Create gradient sky background
+    const skyGeometry = new THREE.SphereGeometry(500, 32, 15);
+    const skyMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        topColor: { value: new THREE.Color(0x0077ff) },    // Bright blue top
+        bottomColor: { value: new THREE.Color(0x000033) }, // Dark blue bottom
+        offset: { value: 33 },
+        exponent: { value: 0.6 }
+      },
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPosition.xyz;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 bottomColor;
+        uniform float offset;
+        uniform float exponent;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition + offset).y;
+          gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
+        }
+      `,
+      side: THREE.BackSide
+    });
+    const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+    scene.add(sky);
+
+    // Atmospheric fog for depth perception
+    scene.fog = new THREE.Fog(
+      0x0a0a1a,  // Fog color (matches sky base)
+      50,         // Near distance
+      150         // Far distance
+    );
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 1.6, 5);
@@ -129,86 +168,83 @@ const DevDefender3D = () => {
     renderer.toneMappingExposure = 1.2;
     rendererRef.current = renderer;
 
-    // Enhanced lighting setup - neutral white to preserve ground color
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    // Improved lighting setup
+    // Ambient light for overall visibility
+    const ambientLight = new THREE.AmbientLight(0x404080, 0.4);
     scene.add(ambientLight);
 
-    // Main directional light (sun)
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    dirLight.position.set(50, 80, 30);
-    dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 4096;
-    dirLight.shadow.mapSize.height = 4096;
-    dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 500;
-    dirLight.shadow.camera.left = -100;
-    dirLight.shadow.camera.right = 100;
-    dirLight.shadow.camera.top = 100;
-    dirLight.shadow.camera.bottom = -100;
-    dirLight.shadow.bias = -0.0001;
-    scene.add(dirLight);
+    // Directional light from above (like sun)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(50, 100, 50);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 4096;
+    directionalLight.shadow.mapSize.height = 4096;
+    directionalLight.shadow.camera.far = 200;
+    directionalLight.shadow.camera.left = -50;
+    directionalLight.shadow.camera.right = 50;
+    directionalLight.shadow.camera.top = 50;
+    directionalLight.shadow.camera.bottom = -50;
+    directionalLight.shadow.bias = -0.0001;
+    scene.add(directionalLight);
 
-    // Fill light for better visibility - slightly warm tone
-    const fillLight = new THREE.DirectionalLight(0xfff5e6, 0.25);
-    fillLight.position.set(-30, 40, -20);
-    scene.add(fillLight);
-
-    // Very visible ground - bright green/brown for clear distinction from sky
-    const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
-    const groundMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x4a7c4a, // Bright, saturated green - clearly visible
-      roughness: 0.9,
-      metalness: 0.1,
-      emissive: 0x1a3a1a, // Slight emissive for visibility
-      emissiveIntensity: 0.1,
-    });
-    
-    // Add subtle height variation to ground
-    const vertices = groundGeometry.attributes.position;
-    for (let i = 0; i < vertices.count; i++) {
-      const x = vertices.getX(i);
-      const z = vertices.getY(i);
-      const y = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 0.1;
-      vertices.setY(i, y);
-    }
-    groundGeometry.computeVertexNormals();
-    
-    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    // Add visible grass patches - much brighter for clear visibility
-    for (let i = 0; i < 200; i++) {
-      const grass = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.3, 0.4),
-        new THREE.MeshStandardMaterial({ 
-          color: 0x5a8a3a, // Much brighter green for clear visibility
-          side: THREE.DoubleSide,
-          alphaTest: 0.5,
-        })
-      );
-      grass.rotation.x = -Math.PI / 2;
-      grass.rotation.z = Math.random() * Math.PI * 2;
-      grass.position.set(
-        (Math.random() - 0.5) * 180,
-        0.05, // Slightly higher for visibility
-        (Math.random() - 0.5) * 180
-      );
-      scene.add(grass);
-    }
-
-    // Add a visible horizon line/plane for reference
-    const horizonLine = new THREE.Mesh(
-      new THREE.PlaneGeometry(400, 0.2),
-      new THREE.MeshBasicMaterial({ 
-        color: 0xffffff,
-        opacity: 0.3,
-        transparent: true,
-      })
+    // Hemisphere light for natural color gradient
+    const hemisphereLight = new THREE.HemisphereLight(
+      0x4488ff,  // Sky color (blue)
+      0x223344,  // Ground color (dark blue-grey)
+      0.6
     );
-    horizonLine.rotation.x = -Math.PI / 2;
-    horizonLine.position.y = 0.1;
+    scene.add(hemisphereLight);
+
+    // Neon grid floor for sci-fi aesthetic
+    const floorSize = 200;
+    const gridDivisions = 40;
+    const gridHelper = new THREE.GridHelper(
+      floorSize, 
+      gridDivisions, 
+      0x00ffff,  // Cyan center lines
+      0x004444   // Dark teal grid lines
+    );
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    // Add a solid floor plane beneath the grid
+    const floorGeometry = new THREE.PlaneGeometry(floorSize, floorSize);
+    const floorMaterial = new THREE.MeshStandardMaterial({
+      color: 0x111122,        // Very dark blue-grey
+      roughness: 0.8,
+      metalness: 0.2,
+      emissive: 0x001122,     // Slight blue glow
+      emissiveIntensity: 0.3
+    });
+    const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.1;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    // Add neon horizon accent line for extra sci-fi feel
+    const horizonLineGeometry = new THREE.BufferGeometry();
+    const horizonPoints = [];
+    const segments = 100;
+    for (let i = 0; i <= segments; i++) {
+      const angle = (i / segments) * Math.PI * 2;
+      const radius = 150;
+      horizonPoints.push(
+        Math.cos(angle) * radius,
+        10,
+        Math.sin(angle) * radius
+      );
+    }
+    horizonLineGeometry.setAttribute(
+      'position',
+      new THREE.Float32BufferAttribute(horizonPoints, 3)
+    );
+    const horizonLineMaterial = new THREE.LineBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.3
+    });
+    const horizonLine = new THREE.Line(horizonLineGeometry, horizonLineMaterial);
     scene.add(horizonLine);
 
     // Create buildings
