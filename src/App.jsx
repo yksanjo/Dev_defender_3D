@@ -114,29 +114,86 @@ const DevDefender3D = () => {
     camera.position.set(0, 1.6, 5);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, antialias: true });
+    const renderer = new THREE.WebGLRenderer({ 
+      canvas: canvasRef.current, 
+      antialias: true,
+      powerPreference: "high-performance",
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
     rendererRef.current = renderer;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // Enhanced lighting setup
+    const ambientLight = new THREE.AmbientLight(0x87ceeb, 0.4);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(50, 50, 50);
+    // Main directional light (sun)
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(50, 80, 30);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.mapSize.width = 4096;
+    dirLight.shadow.mapSize.height = 4096;
+    dirLight.shadow.camera.near = 0.5;
+    dirLight.shadow.camera.far = 500;
+    dirLight.shadow.camera.left = -100;
+    dirLight.shadow.camera.right = 100;
+    dirLight.shadow.camera.top = 100;
+    dirLight.shadow.camera.bottom = -100;
+    dirLight.shadow.bias = -0.0001;
     scene.add(dirLight);
 
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshStandardMaterial({ color: 0x3a5f3a }),
-    );
+    // Fill light for better visibility
+    const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.3);
+    fillLight.position.set(-30, 40, -20);
+    scene.add(fillLight);
+
+    // Realistic ground with texture variation
+    const groundGeometry = new THREE.PlaneGeometry(200, 200, 50, 50);
+    const groundMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x4a7c4a,
+      roughness: 0.9,
+      metalness: 0.1,
+    });
+    
+    // Add subtle height variation to ground
+    const vertices = groundGeometry.attributes.position;
+    for (let i = 0; i < vertices.count; i++) {
+      const x = vertices.getX(i);
+      const z = vertices.getY(i);
+      const y = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 0.1;
+      vertices.setY(i, y);
+    }
+    groundGeometry.computeVertexNormals();
+    
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // Add grass patches (simple quads)
+    for (let i = 0; i < 200; i++) {
+      const grass = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.3, 0.4),
+        new THREE.MeshStandardMaterial({ 
+          color: 0x2d5a2d,
+          side: THREE.DoubleSide,
+          alphaTest: 0.5,
+        })
+      );
+      grass.rotation.x = -Math.PI / 2;
+      grass.rotation.z = Math.random() * Math.PI * 2;
+      grass.position.set(
+        (Math.random() - 0.5) * 180,
+        0.02,
+        (Math.random() - 0.5) * 180
+      );
+      scene.add(grass);
+    }
 
     // Create buildings
     const buildingPositions = [
@@ -152,30 +209,144 @@ const DevDefender3D = () => {
       const width = Math.random() * 5 + 5;
       const depth = Math.random() * 5 + 5;
       
+      const buildingGroup = new THREE.Group();
+      
+      // Main building body with better material
       const buildingGeo = new THREE.BoxGeometry(width, height, depth);
       const buildingMat = new THREE.MeshStandardMaterial({ 
-        color: Math.random() > 0.5 ? 0x808080 : 0x696969 
+        color: Math.random() > 0.5 ? 0x708090 : 0x556b2f,
+        roughness: 0.7,
+        metalness: 0.1,
       });
       const building = new THREE.Mesh(buildingGeo, buildingMat);
-      building.position.set(pos[0], height / 2, pos[2]);
       building.castShadow = true;
       building.receiveShadow = true;
-      scene.add(building);
+      buildingGroup.add(building);
+
+      // Add windows
+      const windowCount = Math.floor(height / 2);
+      for (let i = 0; i < windowCount; i++) {
+        const windowGeo = new THREE.PlaneGeometry(0.8, 0.8);
+        const windowMat = new THREE.MeshStandardMaterial({ 
+          color: 0x1a1a2e,
+          emissive: Math.random() > 0.7 ? 0xffffaa : 0x000000,
+          emissiveIntensity: 0.3,
+        });
+        
+        // Front windows
+        const frontWindow = new THREE.Mesh(windowGeo, windowMat);
+        frontWindow.position.set(0, -height/2 + (i + 1) * 2, depth/2 + 0.01);
+        buildingGroup.add(frontWindow);
+        
+        // Back windows
+        const backWindow = new THREE.Mesh(windowGeo, windowMat);
+        backWindow.position.set(0, -height/2 + (i + 1) * 2, -depth/2 - 0.01);
+        buildingGroup.add(backWindow);
+      }
+
+      // Add roof detail
+      const roofGeo = new THREE.BoxGeometry(width + 0.2, 0.3, depth + 0.2);
+      const roofMat = new THREE.MeshStandardMaterial({ 
+        color: 0x2c2c2c,
+        roughness: 0.8,
+      });
+      const roof = new THREE.Mesh(roofGeo, roofMat);
+      roof.position.y = height / 2 + 0.15;
+      roof.castShadow = true;
+      buildingGroup.add(roof);
+
+      buildingGroup.position.set(pos[0], height / 2, pos[2]);
+      scene.add(buildingGroup);
     });
 
-    // Weapon (gun model attached to camera)
+    // Realistic weapon model (assault rifle style)
     const weaponGroup = new THREE.Group();
-    const barrelGeo = new THREE.BoxGeometry(0.05, 0.05, 0.5);
-    const weaponMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
-    const barrel = new THREE.Mesh(barrelGeo, weaponMat);
-    barrel.position.set(0.15, -0.15, -0.3);
     
-    const handleGeo = new THREE.BoxGeometry(0.08, 0.15, 0.1);
-    const handle = new THREE.Mesh(handleGeo, weaponMat);
-    handle.position.set(0.15, -0.25, -0.1);
-    
+    // Main body/receiver
+    const bodyGeo = new THREE.BoxGeometry(0.12, 0.08, 0.4);
+    const bodyMat = new THREE.MeshStandardMaterial({ 
+      color: 0x1a1a1a,
+      roughness: 0.3,
+      metalness: 0.8,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.position.set(0.2, -0.2, -0.4);
+    body.castShadow = true;
+    weaponGroup.add(body);
+
+    // Barrel (longer, more detailed)
+    const barrelGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.5, 16);
+    const barrelMat = new THREE.MeshStandardMaterial({ 
+      color: 0x2c2c2c,
+      roughness: 0.2,
+      metalness: 0.9,
+    });
+    const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+    barrel.rotation.z = Math.PI / 2;
+    barrel.position.set(0.2, -0.2, -0.65);
+    barrel.castShadow = true;
     weaponGroup.add(barrel);
-    weaponGroup.add(handle);
+
+    // Barrel tip/flash hider
+    const tipGeo = new THREE.CylinderGeometry(0.02, 0.015, 0.05, 16);
+    const tip = new THREE.Mesh(tipGeo, barrelMat);
+    tip.rotation.z = Math.PI / 2;
+    tip.position.set(0.2, -0.2, -0.9);
+    weaponGroup.add(tip);
+
+    // Handguard/rail
+    const handguardGeo = new THREE.BoxGeometry(0.1, 0.06, 0.35);
+    const handguardMat = new THREE.MeshStandardMaterial({ 
+      color: 0x2a2a2a,
+      roughness: 0.4,
+      metalness: 0.6,
+    });
+    const handguard = new THREE.Mesh(handguardGeo, handguardMat);
+    handguard.position.set(0.2, -0.18, -0.5);
+    weaponGroup.add(handguard);
+
+    // Pistol grip
+    const gripGeo = new THREE.BoxGeometry(0.06, 0.12, 0.08);
+    const gripMat = new THREE.MeshStandardMaterial({ 
+      color: 0x1a1a1a,
+      roughness: 0.6,
+      metalness: 0.1,
+    });
+    const grip = new THREE.Mesh(gripGeo, gripMat);
+    grip.position.set(0.2, -0.28, -0.25);
+    grip.rotation.x = 0.2;
+    weaponGroup.add(grip);
+
+    // Stock
+    const stockGeo = new THREE.BoxGeometry(0.08, 0.1, 0.15);
+    const stock = new THREE.Mesh(stockGeo, bodyMat);
+    stock.position.set(0.2, -0.2, -0.15);
+    weaponGroup.add(stock);
+
+    // Magazine
+    const magGeo = new THREE.BoxGeometry(0.05, 0.12, 0.04);
+    const magMat = new THREE.MeshStandardMaterial({ 
+      color: 0x2a2a2a,
+      roughness: 0.5,
+      metalness: 0.7,
+    });
+    const magazine = new THREE.Mesh(magGeo, magMat);
+    magazine.position.set(0.2, -0.32, -0.25);
+    weaponGroup.add(magazine);
+
+    // Scope/sight (optional detail)
+    const sightGeo = new THREE.BoxGeometry(0.04, 0.03, 0.08);
+    const sight = new THREE.Mesh(sightGeo, barrelMat);
+    sight.position.set(0.2, -0.12, -0.4);
+    weaponGroup.add(sight);
+
+    // Trigger guard
+    const triggerGuardGeo = new THREE.TorusGeometry(0.03, 0.008, 8, 16, Math.PI);
+    const triggerGuard = new THREE.Mesh(triggerGuardGeo, bodyMat);
+    triggerGuard.rotation.x = Math.PI / 2;
+    triggerGuard.position.set(0.2, -0.24, -0.2);
+    weaponGroup.add(triggerGuard);
+
     camera.add(weaponGroup);
     weaponGroupRef.current = weaponGroup;
     scene.add(camera);
@@ -208,9 +379,29 @@ const DevDefender3D = () => {
       if (keys.current['a']) cameraRef.current.position.add(right.clone().multiplyScalar(-moveSpeed));
       if (keys.current['d']) cameraRef.current.position.add(right.clone().multiplyScalar(moveSpeed));
 
-      // Weapon recoil recovery
-      if (weaponGroupRef.current && weaponGroupRef.current.rotation.x < 0) {
-        weaponGroupRef.current.rotation.x += 0.05;
+      // Realistic weapon recoil recovery with slight sway
+      if (weaponGroupRef.current) {
+        // Recoil recovery
+        if (weaponGroupRef.current.rotation.x < 0) {
+          weaponGroupRef.current.rotation.x += 0.05;
+        }
+        if (weaponGroupRef.current.rotation.z !== 0) {
+          weaponGroupRef.current.rotation.z *= 0.9;
+        }
+        if (weaponGroupRef.current.position.z < -0.4) {
+          weaponGroupRef.current.position.z += 0.01;
+        }
+        
+        // Subtle idle sway
+        const time = clockRef.current.getElapsedTime();
+        const baseX = 0.2;
+        const baseY = -0.2;
+        const baseZ = -0.4;
+        weaponGroupRef.current.position.x = baseX + Math.sin(time * 0.5) * 0.002;
+        weaponGroupRef.current.position.y = baseY + Math.cos(time * 0.7) * 0.002;
+        if (Math.abs(weaponGroupRef.current.rotation.z) < 0.01) {
+          weaponGroupRef.current.rotation.z = Math.sin(time * 0.3) * 0.01;
+        }
       }
 
       // Update bullets
@@ -353,9 +544,13 @@ const DevDefender3D = () => {
     sceneRef.current.add(bullet);
     bulletsRef.current.push({ mesh: bullet, velocity });
 
-    // Weapon recoil
+    // Realistic weapon recoil with multiple axes
     if (weaponGroupRef.current) {
-      weaponGroupRef.current.rotation.x = -0.1;
+      weaponGroupRef.current.rotation.x = -0.15;
+      weaponGroupRef.current.rotation.z = (Math.random() - 0.5) * 0.05;
+      weaponGroupRef.current.position.z -= 0.02;
+      
+      // Recoil recovery will happen in animation loop
     }
 
     // Check for hits with raycaster
