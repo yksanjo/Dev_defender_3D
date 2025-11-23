@@ -1,5 +1,9 @@
 # Dev Defender 3D
 
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-yellow.svg)](https://www.javascript.com/) [![GitHub stars](https://img.shields.io/github/stars/yksanjo/Dev_defender_3D?style=social)](https://github.com/yksanjo/Dev_defender_3D/stargazers) [![GitHub forks](https://img.shields.io/github/forks/yksanjo/Dev_defender_3D.svg)](https://github.com/yksanjo/Dev_defender_3D/network/members) [![GitHub issues](https://img.shields.io/github/issues/yksanjo/Dev_defender_3D.svg)](https://github.com/yksanjo/Dev_defender_3D/issues)
+[![Last commit](https://img.shields.io/github/last-commit/yksanjo/Dev_defender_3D.svg)](https://github.com/yksanjo/Dev_defender_3D/commits/main)
+
+
 Reimagined sci-fi office defense game built with React, Vite, and raw Three.js. Survive waves of PMs, Marketing execs, and QA testers in an endless arena, collect power-ups, and unleash the Dev Shockwave when your focus meter maxes out.
 
 ## Gameplay Features
